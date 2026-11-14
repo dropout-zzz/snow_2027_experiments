@@ -25,9 +25,15 @@ Clang must be installed in WSL to extract triple.
 You must run this script from Windows, not from WSL.
 
 Note this script does not check if Linux headers are installed in WSL.''')
-  ap.add_argument('-o', '--output', type=argparse.FileType('w'), required=True,
+  ap.add_argument('-o', '--output', type=argparse.FileType('w'),
                   help='path to .clangd to be created')
   args = ap.parse_args()
+
+  script_parent_dir = os.path.dirname(__file__)
+
+  if args.output is None:
+    default_out_path = os.path.join(script_parent_dir, '.clangd')
+    args.output = open(default_out_path, 'w')
 
   clang_triple = _wsl_cmd_common(['clang', '-print-target-triple'])
 
@@ -53,11 +59,14 @@ Note this script does not check if Linux headers are installed in WSL.''')
     if winegcc_cmdline[0].split('/')[-1] != 'gcc':
       raise ValueError('output is not a gcc cmdline')
 
+    common_inc_dir = os.path.join(script_parent_dir, '..', '..', 'inc')
+
     args.output.write(f'''\
 CompileFlags:
   Add:
     - -target
     - {clang_triple}
+    - -I{os.path.abspath(common_inc_dir)}
 ''')
 
     for winegcc_arg in winegcc_cmdline:
