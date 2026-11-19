@@ -6,3 +6,5 @@ project(SnowProj LANGUAGES C)
 
 add_executable(snowapp
   snowapp.c)
+target_include_directories(snowapp PRIVATE
+  ../../inc)

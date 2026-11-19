@@ -4,6 +4,9 @@
 #include <stdbool.h>
 
 #include "elf.h"
+#include "koori.h"
+
+typedef typeof(&koori_entry) koori_entry_t;
 
 #define iadd __builtin_add_overflow
 
@@ -16,6 +19,10 @@
 
 #define eprintf(...) fprintf(stderr, __VA_ARGS__)
 #define werr GetLastError()
+
+struct koori {
+  koori_entry_t entry;
+};
 
 static int chk_ehdr(Elf64_Ehdr *ehdr,
                     size_t st_siz, /* size of ELF file */
@@ -168,7 +175,7 @@ static inline int elfload_cpy(void *dst,
   return 0;
 }
 
-int load_koori(const char *path) {
+int load_koori(const char *path, struct koori *koori) {
   int ret = 0;
 
   HANDLE hFile;
@@ -499,6 +506,8 @@ fail:
     }
   }
 
+  koori->entry = (koori_entry_t)((uintptr_t)base + ehdr->e_entry);
+
 out:
   /* TODO: remove any loaded segments if failed */
 
@@ -514,13 +523,18 @@ out:
 }
 
 int main(int argc, char *argv[]) {
+  struct koori koori;
+  struct koori_entry_params koori_args;
+
   if (argc < 2) {
     eprintf("%s: few arg\n", argv[0]);
     return 1;
   }
 
-  if (load_koori(argv[1]) < 0)
+  if (load_koori(argv[1], &koori) < 0)
     return 1;
+
+  koori.entry(&koori_args);
 
   /* TODO: unmap koori */
 }
