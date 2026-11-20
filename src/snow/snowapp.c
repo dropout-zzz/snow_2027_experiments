@@ -9,6 +9,7 @@
 typedef typeof(&koori_entry) koori_entry_t;
 
 #define iadd __builtin_add_overflow
+#define isub __builtin_sub_overflow
 
 #define ROUND_DOWN(x,y) ((x) - (x) % (y))
 
@@ -22,10 +23,15 @@ typedef typeof(&koori_entry) koori_entry_t;
 
 struct koori {
   koori_entry_t entry;
+
+  uint16_t phentsiz;
+  uint16_t phnum;
+  uintptr_t phbase;
 };
 
 static int chk_ehdr(Elf64_Ehdr *ehdr,
                     size_t st_siz, /* size of ELF file */
+                    size_t *pht_siz,
                     const char *what /* name of ELF file */) {
   /* NOTE: caller must ensure st_siz is at least an Ehdr */
 
@@ -104,6 +110,8 @@ fail:
     eprintf("%s seg tbl exceeds file end\n", what);
     goto fail;
   }
+
+  *pht_siz = phdr_tbl_siz;
 
   return 0;
 }
@@ -185,6 +193,7 @@ int load_koori(const char *path, struct koori *koori) {
   void *view = NULL;
 
   Elf64_Ehdr *ehdr;
+  size_t pht_siz;
   uintptr_t phdrs_base;
 
   SYSTEM_INFO si;
@@ -243,7 +252,7 @@ fail:
 
   ehdr = (Elf64_Ehdr *)view;
 
-  if (chk_ehdr(ehdr, siz.QuadPart,
+  if (chk_ehdr(ehdr, siz.QuadPart, &pht_siz,
                "koori.elf") < 0)
     goto fail;
 
@@ -397,6 +406,18 @@ fail:
       continue;
     }
 
+    if (ehdr->e_phoff >= phdr->p_offset) {
+      Elf64_Off pht_pos = ehdr->e_phoff - phdr->p_offset;
+      size_t mapped_pht_siz;
+
+      // XXX: check too restrictive: assumes PHT in one PT_LOAD
+      if (!isub(phdr->p_filesz,
+                pht_pos,
+                &mapped_pht_siz)
+          && mapped_pht_siz >= pht_siz)
+        koori->phbase = (uintptr_t)base + phdr->p_vaddr + pht_pos;
+    }
+
     LARGE_INTEGER fileoff = {.QuadPart = ROUND_DOWN(phdr->p_offset, the_64k)};
     size_t filesz = phdr->p_filesz + make_up;
 
@@ -507,6 +528,8 @@ fail:
   }
 
   koori->entry = (koori_entry_t)((uintptr_t)base + ehdr->e_entry);
+  koori->phentsiz = ehdr->e_phentsize;
+  koori->phnum = ehdr->e_phnum;
 
 out:
   /* TODO: remove any loaded segments if failed */
@@ -523,7 +546,7 @@ out:
 }
 
 int main(int argc, char *argv[]) {
-  struct koori koori;
+  struct koori koori = {};
   struct koori_entry_params koori_args;
 
   if (argc < 2) {
@@ -533,6 +556,15 @@ int main(int argc, char *argv[]) {
 
   if (load_koori(argv[1], &koori) < 0)
     return 1;
+
+  if (!koori.phbase) {
+    eprintf("koori.elf pht not loaded\n");
+    return 1;
+  }
+
+  koori_args.phentsiz = koori.phentsiz;
+  koori_args.phnum = koori.phnum;
+  koori_args.phbase = koori.phbase;
 
   koori.entry(&koori_args);
 
