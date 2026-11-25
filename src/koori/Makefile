@@ -4,20 +4,25 @@
 INCS := ../../inc
 OBJS := koori.o
 DEPS := $(patsubst %.o,%.d,$(OBJS))
+DLLS := 
+LIBS := $(addsuffix .a,$(addprefix lib,$(DLLS)))
 
 CPPFLAGS := $(addprefix -I,$(INCS)) -MD -MP
 CFLAGS := -mno-cygwin -fPIE -mno-red-zone -O2 -g
-LDFLAGS := -nostdlib -static-pie -Wl,-z,max-page-size=0x10000 -e koori_entry
+LDFLAGS := $(addprefix -l,$(DLLS)) -L. -nostdlib -static-pie -Wl,-z,max-page-size=0x10000 -e koori_entry -T snowin.ld
 
-koori.elf: $(OBJS)
-	gcc $^ $(LDFLAGS) -o $@
+koori.elf: $(OBJS) $(LIBS)
+	gcc $(OBJS) $(LDFLAGS) -o $@
 
 -include $(DEPS)
 
 %.o: %.c
 	winegcc $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
+lib%.a: %.lst
+	./snowin_gen_stub.py $<
+
 clean:
-	rm -f koori.elf $(OBJS) $(DEPS)
+	rm -f koori.elf $(OBJS) $(DEPS) $(LIBS)
 
 .PHONY: clean

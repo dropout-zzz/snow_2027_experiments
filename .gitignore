@@ -11,4 +11,5 @@ CMakeFiles/
 *.exe
 
 *.o
+*.a
 *.d
