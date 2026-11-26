@@ -4,11 +4,14 @@
 INCS := ../../inc
 OBJS := koori.o
 DEPS := $(patsubst %.o,%.d,$(OBJS))
-DLLS := 
+DLLS := kernel32 ucrtbase
 LIBS := $(addsuffix .a,$(addprefix lib,$(DLLS)))
 
 CPPFLAGS := $(addprefix -I,$(INCS)) -MD -MP
-CFLAGS := -mno-cygwin -fPIE -mno-red-zone -O2 -g
+
+# TODO: can we implement stack protection?
+CFLAGS := -mno-cygwin -fPIE -mno-red-zone -fno-stack-protector -Wformat -O2 -g
+
 LDFLAGS := $(addprefix -l,$(DLLS)) -L. -nostdlib -static-pie -Wl,-z,max-page-size=0x10000 -e koori_entry -T snowin.ld
 
 koori.elf: $(OBJS) $(LIBS)

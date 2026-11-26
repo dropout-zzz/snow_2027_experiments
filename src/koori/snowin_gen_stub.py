@@ -37,8 +37,9 @@ There must be no empty or white-space lines in *.lst.''')
   with tempfile.TemporaryDirectory() as tmpdir:
     with open(os.path.join(tmpdir, 'resp'), 'w') as rspf:
       script_parent_dir = os.path.abspath(os.path.dirname(__file__))
-      cppfl = ['-DBUILDING_STUB_LIB', '-include',
-               os.path.join(script_parent_dir, '_snowin.h')]
+      fl = ['-DBUILDING_STUB_LIB', '-include',
+            os.path.join(script_parent_dir, '_snowin.h'),
+            '-Wno-builtin-declaration-mismatch']
 
       with open(args.INPUT, 'r') as f:
         for i, fnname in enumerate(map(lambda x: x.removesuffix('\n'), f)):
@@ -47,13 +48,13 @@ There must be no empty or white-space lines in *.lst.''')
           with open(os.path.join(tmpdir, stub_src), 'w') as cf:
             cf.write(f'DEFINE_FUNC({dllname}, {fnname})\n')
 
-          _cc([*cppfl, stub_src], cwd=tmpdir)
+          _cc([*fl, stub_src], cwd=tmpdir)
           rspf.write(f'{i}.o\n')
 
       with open(os.path.join(tmpdir, 's.c'), 'w') as cf:
         cf.write(f'DEFINE_LBRY({dllname})\n')
 
-      _cc([*cppfl, 's.c'], cwd=tmpdir)
+      _cc([*fl, 's.c'], cwd=tmpdir)
       rspf.write('s.o\n')
 
     out_dir = os.path.dirname(args.INPUT)

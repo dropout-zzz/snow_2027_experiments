@@ -3,6 +3,11 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdarg.h>
+
+#ifndef _UCRT
+#error koori assumes UCRT
+#endif
 
 #include "elf.h"
 #include "koori.h"
@@ -546,6 +551,17 @@ out:
   return ret;
 }
 
+__attribute__((noreturn,format(printf,1,2)))
+__cdecl void koori_early_abort(const char *fmt, ...) {
+  va_list ap;
+
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
+
+  exit(1);
+}
+
 __stdcall void *snowin_open_dll(const char *name) {
   HMODULE h = LoadLibraryA(name);
 
@@ -588,6 +604,8 @@ int main(int argc, char *argv[]) {
   koori_args.phentsiz = koori.phentsiz;
   koori_args.phnum = koori.phnum;
   koori_args.phbase = koori.phbase;
+
+  koori_args.early_abort_cb = &koori_early_abort;
 
   koori_args.load_lib_cb = &snowin_open_dll;
   koori_args.get_fn_addr_cb = &snowin_get_func;
