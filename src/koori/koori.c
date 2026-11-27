@@ -47,6 +47,47 @@ __stdcall void koori_entry(struct koori_entry_params *args) {
     }
   }
 
+  uintptr_t relas_base;
+  size_t rela_tbl_siz = 0;
+  size_t rela_ent_siz = sizeof(Elf64_Rela);
+
+  for (Elf64_Dyn *dyn = _DYNAMIC; dyn->d_tag != DT_NULL; dyn++) {
+    switch (dyn->d_tag) {
+      case DT_RELA:
+        relas_base = dyn->d_un.d_ptr + base;
+        break;
+
+      case DT_RELASZ:
+        rela_tbl_siz = dyn->d_un.d_val;
+        break;
+
+      case DT_RELAENT:
+        if (sizeof(Elf64_Rela) > dyn->d_un.d_val)
+          args->do_early_abort("rela tbl item small\n");
+
+        rela_ent_siz = dyn->d_un.d_val;
+        break;
+    }
+  }
+
+  size_t rela_count = rela_tbl_siz / rela_ent_siz;
+
+  for (size_t i = 0; i < rela_count; i++) {
+    size_t rela_off = i * rela_ent_siz;
+    Elf64_Rela *rela = (Elf64_Rela *)(relas_base + rela_off);
+    unsigned int reloc_typ = ELF64_R_TYPE(rela->r_info);
+
+    switch (reloc_typ) {
+#ifdef __x86_64__
+      case R_X86_64_RELATIVE:
+        *(uintptr_t *)(base + rela->r_offset) = base + rela->r_addend;
+        break;
+#endif
+      default:
+        args->do_early_abort("fixme reloc: %u\n", reloc_typ);
+    }
+  }
+
   for (PSNOWIN_LIBRARY library = __snowinlibs; (char *)library != &__snowinlibs_end; library++) {
     library->Handle = args->load_lib_cb(library->Name);
   }
