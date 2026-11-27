@@ -1,6 +1,6 @@
 # Build rules for MinGW portions of SNOW.
 
-cmake_minimum_required(VERSION 4.4.5)
+cmake_minimum_required(VERSION 4.2.0)
 
 project(SnowProj LANGUAGES C)
 
